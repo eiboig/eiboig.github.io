@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Echo Services — Custom Discord Bots</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── RESET & BASE ──────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080a0f;
+      --bg2: #0d1117;
+      --surface: #111720;
+      --border: rgba(255,255,255,0.07);
+      --accent: #00e5c4;
+      --accent2: #7b6ff0;
+      --red: #ff4444;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-display);
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ─── CUSTOM CURSOR ─────────────────────────────────── */
+    .cursor {
+      position: fixed; top: 0; left: 0; z-index: 9999;
+      pointer-events: none;
+      mix-blend-mode: difference;
+    }
+    .cursor-dot {
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s;
+    }
+    .cursor-ring {
+      width: 32px; height: 32px;
+      border: 1px solid var(--accent);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: all 0.2s ease;
+      opacity: 0.6;
+    }
+
+    /* ─── NOISE TEXTURE ─────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    /* ─── NAV ───────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      background: rgba(8,10,15,0.7);
+    }
+    .nav-logo {
+      font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em;
+      color: var(--text);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .nav-logo span { color: var(--accent); }
+    .nav-status {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-family: var(--font-mono); font-size: 0.72rem;
+      color: var(--accent); letter-spacing: 0.05em;
+      transition: color 0.4s;
+    }
+    .nav-status.slow { color: #f5a623; }
+    .nav-status.closed { color: var(--red); }
+    .status-dot {
+      width: 6px; height: 6px; background: currentColor;
+      border-radius: 50%; animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+    .nav-status.slow .status-dot { animation: pulse-slow 3s infinite; }
+    .nav-status.closed .status-dot { animation: none; opacity: 0.7; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }
+    @keyframes pulse-slow { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.3)} }
+    .nav-cta {
+      background: var(--accent); color: var(--bg);
+      border: none; padding: 0.55rem 1.25rem;
+      font-family: var(--font-display); font-weight: 700; font-size: 0.8rem;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      cursor: none; text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-cta:hover { background: #fff; }
+
+    /* ─── HERO ──────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 8rem 2.5rem 4rem;
+      position: relative; z-index: 1;
+      overflow: hidden;
+    }
+    .hero-bg-grid {
+      position: absolute; inset: 0; z-index: -1;
+      background-image:
+        linear-gradient(rgba(0,229,196,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,196,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    .hero-bg-radial {
+      position: absolute; inset: 0; z-index: -1;
+      background: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(123,111,240,0.08), transparent 70%);
+    }
+    .hero-eyebrow {
+      font-family: var(--font-mono); font-size: 0.72rem;
+      color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      opacity: 0; animation: fadeUp 0.8s 0.1s forwards;
+    }
+    .hero h1 {
+      font-size: clamp(3rem, 8vw, 7rem);
+      font-weight: 800; line-height: 0.95;
+      letter-spacing: -0.04em;
+      max-width: 14ch;
+      opacity: 0; animation: fadeUp 0.8s 0.2s forwards;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero-sub {
+      margin-top: 2rem;
+      font-family: var(--font-mono); font-size: 0.9rem;
+      color: var(--muted); max-width: 50ch; line-height: 1.7;
+      opacity: 0; animation: fadeUp 0.8s 0.35s forwards;
+    }
+    .hero-actions {
+      margin-top: 2.5rem; display: flex; gap: 1rem; flex-wrap: wrap;
+      opacity: 0; animation: fadeUp 0.8s 0.5s forwards;
+    }
+    .btn-primary {
+      background: var(--accent); color: var(--bg);
+      padding: 0.85rem 2rem; font-weight: 700;
+      font-family: var(--font-display); font-size: 0.85rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      border: none; cursor: none; text-decoration: none;
+      transition: all 0.2s; display: inline-block;
+    }
+    .btn-primary:hover { background: #fff; transform: translateY(-2px); }
+    .btn-ghost {
+      background: transparent; color: var(--text);
+      padding: 0.85rem 2rem; font-weight: 700;
+      font-family: var(--font-display); font-size: 0.85rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      border: 1px solid var(--border); cursor: none; text-decoration: none;
+      transition: all 0.2s; display: inline-block;
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .hero-scroll {
+      position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+      font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);
+      letter-spacing: 0.1em; text-transform: uppercase;
+      animation: fadeIn 1s 1.2s both;
+    }
+    .scroll-line {
+      width: 1px; height: 40px;
+      background: linear-gradient(var(--accent), transparent);
+      animation: scrollLine 1.5s ease-in-out infinite;
+    }
+    @keyframes scrollLine { 0%{transform:scaleY(0);transform-origin:top} 50%{transform:scaleY(1);transform-origin:top} 51%{transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+    /* ─── TICKER ────────────────────────────────────────── */
+    .ticker-wrap {
+      overflow: hidden; border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 0;
+      background: rgba(0,229,196,0.03);
+      position: relative; z-index: 1;
+    }
+    .ticker-track {
+      display: flex; width: max-content;
+      animation: ticker 30s linear infinite;
+    }
+    .ticker-item {
+      font-family: var(--font-mono); font-size: 0.72rem;
+      color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 0 2.5rem; white-space: nowrap;
+    }
+    .ticker-item span { color: var(--accent); margin-right: 0.5rem; }
+    @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+    /* ─── SECTION BASE ──────────────────────────────────── */
+    section { position: relative; z-index: 1; }
+    .section-label {
+      font-family: var(--font-mono); font-size: 0.7rem;
+      color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800; letter-spacing: -0.03em; line-height: 1.1;
+    }
+    .container {
+      max-width: 1200px; margin: 0 auto;
+      padding: 6rem 2.5rem;
+    }
+
+    /* ─── SERVICES ──────────────────────────────────────── */
+    .services-grid {
+      margin-top: 3rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+    .service-card {
+      background: var(--bg); padding: 2rem;
+      transition: background 0.25s;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 0.5s, transform 0.5s, background 0.25s;
+    }
+    .service-card.visible { opacity: 1; transform: translateY(0); }
+    .service-card:hover { background: var(--surface); }
+    .service-icon {
+      font-size: 1.5rem; margin-bottom: 1rem;
+    }
+    .service-card h3 {
+      font-size: 1rem; font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .service-card p {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      color: var(--muted); line-height: 1.6;
+    }
+
+    /* ─── PRICING ───────────────────────────────────────── */
+    .pricing-section { background: var(--bg2); }
+    .pricing-grid {
+      margin-top: 3rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+    .pricing-card {
+      background: var(--bg2); padding: 2.5rem;
+      position: relative; overflow: hidden;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 0.5s, transform 0.5s;
+    }
+    .pricing-card.visible { opacity: 1; transform: translateY(0); }
+    .pricing-card.featured {
+      background: var(--surface);
+    }
+    .pricing-card.featured::before {
+      content: 'MOST POPULAR';
+      position: absolute; top: 1.25rem; right: -1rem;
+      background: var(--accent); color: var(--bg);
+      font-family: var(--font-mono); font-size: 0.6rem;
+      font-weight: 500; letter-spacing: 0.1em;
+      padding: 0.3rem 2rem;
+      transform: rotate(3deg);
+    }
+    .pricing-tier {
+      font-family: var(--font-mono); font-size: 0.7rem;
+      color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+    .pricing-price {
+      font-size: 2.5rem; font-weight: 800;
+      letter-spacing: -0.04em; margin-bottom: 0.25rem;
+    }
+    .pricing-price .currency { font-size: 1rem; vertical-align: super; }
+    .pricing-robux {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      color: var(--muted); margin-bottom: 1.5rem;
+    }
+    .pricing-divider {
+      height: 1px; background: var(--border); margin: 1.5rem 0;
+    }
+    .pricing-features {
+      list-style: none; display: flex; flex-direction: column; gap: 0.6rem;
+      margin-bottom: 2rem;
+    }
+    .pricing-features li {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      color: var(--muted); display: flex; gap: 0.6rem; align-items: flex-start;
+    }
+    .pricing-features li::before { content: '→'; color: var(--accent); flex-shrink: 0; }
+
+    /* ─── FORM ──────────────────────────────────────────── */
+    .contact-section { background: var(--bg); }
+    .contact-inner {
+      display: grid; grid-template-columns: 1fr 1.6fr; gap: 5rem; align-items: start;
+    }
+    .contact-info h2 { margin-bottom: 1rem; }
+    .contact-info p {
+      font-family: var(--font-mono); font-size: 0.82rem;
+      color: var(--muted); line-height: 1.7; margin-bottom: 2rem;
+    }
+    .discord-id {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+      font-family: var(--font-mono); font-size: 0.78rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .discord-id:hover { border-color: var(--accent); }
+    .discord-id .label { color: var(--muted); font-size: 0.65rem; display: block; margin-bottom: 0.25rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .discord-id .id-value { color: var(--text); }
+    .copy-hint { font-size: 0.65rem; color: var(--accent); }
+
+    .form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    .form-field { display: flex; flex-direction: column; gap: 0.4rem; }
+    .form-field.full { grid-column: 1 / -1; }
+    .form-field label {
+      font-family: var(--font-mono); font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .form-field input,
+    .form-field select,
+    .form-field textarea {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono); font-size: 0.82rem;
+      padding: 0.75rem 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%; resize: vertical;
+    }
+    .form-field select option { background: var(--surface); }
+    .form-field input:focus,
+    .form-field select:focus,
+    .form-field textarea:focus { border-color: var(--accent); }
+    .form-submit {
+      grid-column: 1 / -1; margin-top: 0.5rem;
+    }
+    .btn-submit {
+      background: var(--accent); color: var(--bg);
+      border: none; padding: 1rem 2.5rem;
+      font-family: var(--font-display); font-weight: 700;
+      font-size: 0.88rem; letter-spacing: 0.06em; text-transform: uppercase;
+      cursor: pointer; transition: all 0.2s; width: 100%;
+    }
+    .btn-submit:hover { background: #fff; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .form-status {
+      grid-column: 1 / -1;
+      font-family: var(--font-mono); font-size: 0.8rem;
+      padding: 0.75rem 1rem;
+      display: none;
+    }
+    .form-status.success { background: rgba(0,229,196,0.1); color: var(--accent); border: 1px solid rgba(0,229,196,0.3); }
+    .form-status.error { background: rgba(255,68,68,0.1); color: var(--red); border: 1px solid rgba(255,68,68,0.3); }
+
+    /* ─── FOOTER ────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 2.5rem;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 1rem;
+      font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted);
+      position: relative; z-index: 1;
+    }
+    footer span { color: var(--accent); }
+
+    /* ─── RESPONSIVE ────────────────────────────────────── */
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.25rem; }
+      .hero { padding: 7rem 1.25rem 4rem; }
+      .container { padding: 4rem 1.25rem; }
+      .contact-inner { grid-template-columns: 1fr; gap: 3rem; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── MODALS ────────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .modal-backdrop.active { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      max-width: 560px; width: 100%; max-height: 80vh;
+      overflow-y: auto; padding: 2.5rem;
+      transform: translateY(20px);
+      transition: transform 0.25s;
+      position: relative;
+    }
+    .modal-backdrop.active .modal { transform: translateY(0); }
+    .modal-close {
+      position: absolute; top: 1.25rem; right: 1.25rem;
+      background: none; border: none; color: var(--muted);
+      font-size: 1.2rem; cursor: pointer; line-height: 1;
+      transition: color 0.2s;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal h2 {
+      font-size: 1.4rem; font-weight: 800; letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+    .modal-subtitle {
+      font-family: var(--font-mono); font-size: 0.7rem;
+      color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+    .modal p, .modal li {
+      font-family: var(--font-mono); font-size: 0.8rem;
+      color: var(--muted); line-height: 1.7; margin-bottom: 0.75rem;
+    }
+    .modal h3 {
+      font-size: 0.88rem; font-weight: 700;
+      color: var(--text); margin: 1.25rem 0 0.4rem;
+    }
+    .modal ul { padding-left: 1.25rem; }
+
+    /* Success modal specific */
+    .modal-success .modal-icon {
+      font-size: 3rem; text-align: center; margin-bottom: 1rem;
+    }
+    .modal-success h2 { text-align: center; }
+    .modal-success .modal-subtitle { text-align: center; display: block; }
+    .modal-success .order-id {
+      background: var(--bg); border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      font-family: var(--font-mono); font-size: 0.82rem;
+      text-align: center; color: var(--accent);
+      margin: 1.25rem 0;
+    }
+    .modal-success .checklist {
+      list-style: none; padding: 0;
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .modal-success .checklist li {
+      display: flex; gap: 0.6rem; align-items: flex-start;
+      margin: 0;
+    }
+    .modal-success .checklist li::before { content: "✓"; color: var(--accent); flex-shrink: 0; }
+
+    /* Footer legal links */
+    .footer-legal { display: flex; gap: 1.5rem; }
+    .footer-legal button {
+      background: none; border: none; color: var(--muted);
+      font-family: var(--font-mono); font-size: 0.72rem;
+      cursor: pointer; padding: 0; transition: color 0.2s;
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    .footer-legal button:hover { color: var(--accent); }
+
+  </style>
+</head>
+<body>
+
+  <!-- Custom Cursor -->
+  <div class="cursor">
+    <div class="cursor-ring" id="cursorRing"></div>
+    <div class="cursor-dot" id="cursorDot"></div>
+  </div>
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-logo">Echo<span>.</span></div>
+    <div class="nav-status" id="navStatus">
+      <div class="status-dot"></div>
+      <span id="statusText">Open for orders</span>
+    </div>
+    <a href="#contact" class="nav-cta">Get a Quote</a>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg-grid"></div>
+    <div class="hero-bg-radial"></div>
+    <p class="hero-eyebrow">// Custom Discord Bot Development</p>
+    <h1>Bots that <em>actually</em> do what you need.</h1>
+    <p class="hero-sub">From simple utility bots to fully custom Discord experiences — built fast, priced fairly, delivered clean. Powered by Echo Services.</p>
+    <div class="hero-actions">
+      <a href="#contact" class="btn-primary">Start a Project</a>
+      <a href="#services" class="btn-ghost">See Services</a>
+    </div>
+    <div class="hero-scroll">
+      <div class="scroll-line"></div>
+      Scroll
+    </div>
+  </section>
+
+  <!-- Ticker -->
+  <div class="ticker-wrap">
+    <div class="ticker-track" id="ticker"></div>
+  </div>
+
+  <!-- Services -->
+  <section id="services">
+    <div class="container">
+      <p class="section-label">// What We Build</p>
+      <h2 class="section-title">Every type of bot,<br>built right.</h2>
+      <div class="services-grid" id="servicesGrid"></div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="pricing-section">
+    <div class="container">
+      <p class="section-label">// Pricing</p>
+      <h2 class="section-title">Transparent rates.<br>No surprises.</h2>
+      <p style="font-family:var(--font-mono);font-size:0.82rem;color:var(--muted);margin-top:1rem;">
+        Payment accepted via <span style="color:var(--accent)">Robux (Gamepass)</span> or <span style="color:var(--accent)">PayPal</span>. DM to arrange.
+      </p>
+      <div class="pricing-grid" id="pricingGrid"></div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section id="contact" class="contact-section">
+    <div class="container">
+      <div class="contact-inner">
+        <div class="contact-info">
+          <p class="section-label">// Contact</p>
+          <h2 class="section-title">Let's build something.</h2>
+          <p>Fill in the form and your inquiry will be sent directly to my Discord. I'll reply with a quote and timeline as soon as possible.</p>
+          <p style="margin-top:0.75rem;">Once submitted, you'll receive an <span style="color:var(--accent)">order reference number</span> and I'll DM you on Discord to confirm everything.</p>
+          <div style="margin-top:2rem;">
+            <p style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.08em;">Just want to get in touch?</p>
+            <button onclick="openModal('contactModal')" class="btn-ghost" style="cursor:pointer;border:none;background:var(--surface);border:1px solid var(--border);font-size:0.78rem;">Send a Message →</button>
+          </div>
+        </div>
+        <form id="inquiryForm">
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Discord Username *</label>
+              <input type="text" name="discordUsername" placeholder="@username" required />
+            </div>
+            <div class="form-field">
+              <label>Your Discord ID *</label>
+              <input type="text" name="clientDiscordId" placeholder="e.g. 123456789012345678" required />
+            </div>
+            <div class="form-field">
+              <label>Server Name *</label>
+              <input type="text" name="serverName" placeholder="Your Discord server name" required />
+            </div>
+            <div class="form-field full">
+              <label>Server Invite Link *</label>
+              <input type="text" name="serverInvite" placeholder="discord.gg/yourserver" required />
+            </div>
+            <div class="form-field">
+              <label>Server Type *</label>
+              <select name="serverType" required>
+                <option value="">Select one...</option>
+                <option>ERLC / Roblox RP</option>
+                <option>Gaming Community</option>
+                <option>Study / Education</option>
+                <option>Business / Brand</option>
+                <option>General Community</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label>Budget *</label>
+              <select name="budget" required>
+                <option value="">Select range...</option>
+                <option>500 R$ (~$5)</option>
+                <option>1,000 R$ (~$10)</option>
+                <option>Custom — DM me</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Payment Method *</label>
+              <select name="paymentMethod" required>
+                <option value="">Select one...</option>
+                <option>Robux via Gamepass</option>
+                <option>PayPal</option>
+                <option>Either works</option>
+              </select>
+            </div>
+            <div class="form-field full">
+              <label>Bot Description & Requirements *</label>
+              <textarea name="projectDetails" rows="6" placeholder="Describe your bot in full — what it should do, every command you want, any integrations, how it should behave, any specific features or automations. The more detail you give, the faster I can get started." required></textarea>
+              <small style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);margin-top:0.35rem;display:block;">Tip: include every command, trigger, or feature you can think of. Don't hold back on detail.</small>
+            </div>
+            <div class="form-status" id="formStatus"></div>
+            <div class="form-submit">
+              <button type="submit" class="btn-submit" id="submitBtn">Send Inquiry →</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>© 2025 <span>Echo Services</span> — Custom Discord Bot Development</div>
+    <div class="footer-legal">
+      <button onclick="openModal('privacyModal')">Privacy Policy</button>
+      <button onclick="openModal('tosModal')">Terms of Service</button>
+
+    </div>
+  </footer>
+
+  <script>
+    // ─── CURSOR ──────────────────────────────────────────
+    const ring = document.getElementById('cursorRing');
+    const dot = document.getElementById('cursorDot');
+    let mx = 0, my = 0, rx = 0, ry = 0;
+    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    function animCursor() {
+      rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12;
+      dot.style.left = mx + 'px'; dot.style.top = my + 'px';
+      ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+      requestAnimationFrame(animCursor);
+    }
+    animCursor();
+
+    // ─── TICKER ──────────────────────────────────────────
+    const tickerItems = [
+      'ERLC Patrol Bots', 'Department Management', 'Ticket Systems',
+      'Economy Bots', 'Logging Systems', 'Application Bots',
+      'Strike Tracking', 'Moderation Tools', 'Custom Commands',
+      'Role Management', 'Verification Bots', 'Welcome Systems',
+      'Giveaway Bots', 'Reaction Roles', 'LOA Systems'
+    ];
+    const track = document.getElementById('ticker');
+    const doubled = [...tickerItems, ...tickerItems];
+    track.innerHTML = doubled.map(i => `<span class="ticker-item"><span>→</span>${i}</span>`).join('');
+
+    // ─── SERVICES ────────────────────────────────────────
+    const services = [
+      { icon: '🚔', title: 'ERLC / Roblox Bots', desc: 'Strike tracking, callout systems, in-game rank syncing, infraction logging — everything ERLC servers need.' },
+      { icon: '🎫', title: 'Ticket Systems', desc: 'Support tickets with transcripts, staff assignments, and auto-closing. Works for any server type.' },
+      { icon: '🛡️', title: 'Moderation Bots', desc: 'Automod, warn/ban/mute systems, infraction logs, appeal handling. Keep your server clean.' },
+      { icon: '📋', title: 'Logging Systems', desc: 'Message edits, deletes, joins, leaves, role changes — every action tracked and logged beautifully.' },
+
+      { icon: '🎭', title: 'Application Systems', desc: 'Staff applications, department forms, auto-routing to review channels, acceptance/denial flows.' },
+      { icon: '⚡', title: 'Custom / Anything', desc: 'Have something specific in mind? If it runs on Discord, I can build it. DM me to discuss.' },
+    ];
+    const grid = document.getElementById('servicesGrid');
+    grid.innerHTML = services.map(s => `
+      <div class="service-card">
+        <div class="service-icon">${s.icon}</div>
+        <h3>${s.title}</h3>
+        <p>${s.desc}</p>
+      </div>
+    `).join('');
+
+    // ─── PRICING ─────────────────────────────────────────
+    const plans = [
+      {
+        tier: 'Basic', price: '~$5', robux: '500 R$',
+        features: ['Up to 5 custom commands', 'Basic API calls', 'Ticket system or logging', 'Simple role management', '1 revision included'],
+        cta: 'Get Started'
+      },
+      {
+        tier: 'Standard', price: '~$10', robux: '1,000 R$',
+        featured: true,
+        features: ['Everything in Basic', 'Up to 15 custom commands', 'Advanced API integrations', 'Embed builders & announcement tools', 'Multiple revisions'],
+        cta: 'Most Popular'
+      },
+      {
+        tier: 'Premium', price: 'Custom', robux: 'DM for quote',
+        features: ['Unlimited commands', 'Everything in Standard', 'Multi-department systems', 'Full automation flows', 'Priority turnaround'],
+        cta: 'Contact Me'
+      }
+    ];
+    document.getElementById('pricingGrid').innerHTML = plans.map(p => `
+      <div class="pricing-card ${p.featured ? 'featured' : ''}">
+        <div class="pricing-tier">${p.tier}</div>
+        <div class="pricing-price">${p.price}</div>
+        <div class="pricing-robux">or ${p.robux}</div>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          ${p.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="#contact" class="btn-primary" style="display:block;text-align:center;font-size:0.78rem;">${p.cta} →</a>
+      </div>
+    `).join('');
+
+    // ─── SCROLL REVEAL ────────────────────────────────────
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          setTimeout(() => e.target.classList.add('visible'), i * 60);
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.service-card, .pricing-card').forEach(el => observer.observe(el));
+
+    // ─── STATUS POLLING ───────────────────────────────────
+    const STATUS_MAP = {
+      open:   { text: 'Open for orders',          cls: '' },
+      slow:   { text: 'Slow — may take longer',   cls: 'slow' },
+      closed: { text: 'Closed for orders',        cls: 'closed' },
+    };
+    async function fetchStatus() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/status`);
+        const { status } = await res.json();
+        const s = STATUS_MAP[status] || STATUS_MAP.open;
+        const el = document.getElementById('navStatus');
+        const txt = document.getElementById('statusText');
+        el.className = 'nav-status ' + s.cls;
+        txt.textContent = s.text;
+      } catch (_) {}
+    }
+    fetchStatus();
+    setInterval(fetchStatus, 30000);
+
+    // ─── MODAL CONTROLS ──────────────────────────────────
+    function openModal(id) {
+      document.getElementById(id).classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+      backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(backdrop.id); });
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.active').forEach(m => closeModal(m.id));
+    });
+
+    // ─── FORM SUBMIT ──────────────────────────────────────
+    // ⚠️  Replace this URL with your Railway/Render deployment URL
+    const BACKEND_URL = 'https://YOUR-BACKEND-URL.railway.app';
+
+    document.getElementById('inquiryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const statusEl = document.getElementById('formStatus');
+      const form = e.target;
+
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      statusEl.style.display = 'none';
+
+      const data = {
+        discordUsername: form.discordUsername.value,
+        clientDiscordId: form.clientDiscordId.value,
+        serverName: form.serverName.value,
+        serverInvite: form.serverInvite.value,
+        serverType: form.serverType.value,
+        budget: form.budget.value,
+        paymentMethod: form.paymentMethod.value,
+        projectDetails: form.projectDetails.value,
+      };
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/inquiry`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        if (res.ok) {
+          form.reset();
+          document.getElementById('successMessage').textContent = json.isCustomBudget
+            ? "Since you selected a custom budget, I'll reach out to discuss pricing before any work begins."
+            : "Your inquiry has been received. I'll reach out to you on Discord as soon as possible — usually within 24 hours.";
+          document.getElementById('successOrderId').textContent = json.orderId
+            ? 'Reference ID: ' + json.orderId : '';
+          openModal('successModal');
+        } else {
+          throw new Error(json.error || 'Something went wrong');
+        }
+      } catch (err) {
+        statusEl.className = 'form-status error';
+        statusEl.textContent = String.fromCharCode(10007) + ' ' + err.message + '. Try DMing me directly on Discord.';
+        statusEl.style.display = 'block';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Send Inquiry \u2192';
+    });
+    // ─── CONTACT FORM ─────────────────────────────────────
+    document.getElementById('contactForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('contactBtn');
+      const statusEl = document.getElementById('contactStatus');
+      const form = e.target;
+
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      statusEl.style.display = 'none';
+
+      const data = {
+        discordUsername: form.contactUsername.value,
+        clientDiscordId: form.contactDiscordId.value,
+        message: form.contactMessage.value,
+      };
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/contact`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        if (res.ok) {
+          form.reset();
+          closeModal('contactModal');
+          // reuse success modal with custom message
+          document.getElementById('successMessage').textContent = "Your message has been sent! I'll reply on Discord as soon as possible.";
+          document.getElementById('successOrderId').textContent = '';
+          openModal('successModal');
+        } else {
+          throw new Error(json.error || 'Something went wrong');
+        }
+      } catch (err) {
+        statusEl.className = 'form-status error';
+        statusEl.textContent = '✕ ' + err.message + '. Try DMing me on Discord directly.';
+        statusEl.style.display = 'block';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Send Message →';
+    });
+  </script>
+
+  <!-- ─── CONTACT MODAL ────────────────────────────────────────────── -->
+  <div class="modal-backdrop" id="contactModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('contactModal')">✕</button>
+      <p class="modal-subtitle">Echo Services</p>
+      <h2>Get in Touch</h2>
+      <p style="margin-bottom:1.5rem;">Have a question before committing? Send a message and I'll get back to you on Discord.</p>
+      <form id="contactForm">
+        <div class="form-grid" style="display:flex;flex-direction:column;gap:0.85rem;">
+          <div class="form-field">
+            <label>Discord Username *</label>
+            <input type="text" name="contactUsername" placeholder="@username" required />
+          </div>
+          <div class="form-field">
+            <label>Your Discord ID *</label>
+            <input type="text" name="contactDiscordId" placeholder="e.g. 123456789012345678" required />
+          </div>
+          <div class="form-field">
+            <label>Message *</label>
+            <textarea name="contactMessage" rows="4" placeholder="What would you like to know?" required style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:0.82rem;padding:0.75rem 1rem;outline:none;width:100%;resize:vertical;transition:border-color 0.2s;"></textarea>
+          </div>
+          <div class="form-status" id="contactStatus"></div>
+          <button type="submit" class="btn-submit" id="contactBtn" style="background:var(--accent);color:var(--bg);border:none;padding:0.9rem 2rem;font-family:var(--font-display);font-weight:700;font-size:0.85rem;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;width:100%;">Send Message →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── SUCCESS MODAL ──────────────────────────────────────────── -->
+  <div class="modal-backdrop modal-success" id="successModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('successModal')">✕</button>
+      <div class="modal-icon">📨</div>
+      <h2>Inquiry Sent!</h2>
+      <span class="modal-subtitle">Echo Services</span>
+      <p id="successMessage">Your inquiry has been received. I'll reach out to you on Discord as soon as possible.</p>
+      <div class="order-id" id="successOrderId"></div>
+      <ul class="checklist">
+        <li>Your inquiry has been sent directly to my Discord</li>
+        <li>I'll review your project details and get back to you</li>
+        <li>Expect a reply within 24 hours</li>
+        <li>Make sure your DMs are open so I can reach you</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── PRIVACY POLICY MODAL ──────────────────────────────────── -->
+  <div class="modal-backdrop" id="privacyModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('privacyModal')">✕</button>
+      <p class="modal-subtitle">Echo Services</p>
+      <h2>Privacy Policy</h2>
+      <p>Last updated: 2025</p>
+      <h3>What we collect</h3>
+      <p>When you submit an inquiry through our website, we collect: your name, Discord username, Discord user ID, server name and invite link, server type, budget preference, payment method, and project description.</p>
+      <h3>How we use it</h3>
+      <p>This information is used solely to process your commission inquiry and communicate with you about your project. Your data is sent directly to a private Discord server accessible only by Echo Services.</p>
+      <h3>Data storage</h3>
+      <p>Inquiry data is stored in a private, secure server environment. We do not share, sell, or distribute your information to any third parties.</p>
+      <h3>Discord IDs</h3>
+      <p>Your Discord ID is used only to identify you for the purposes of your order and to facilitate direct communication. It is never shared publicly.</p>
+      <h3>Contact</h3>
+      <p>If you have questions about your data, contact us directly via Discord: <span style="color:var(--accent)">776208075009818636</span></p>
+    </div>
+  </div>
+
+  <!-- ─── TERMS OF SERVICE MODAL ────────────────────────────────── -->
+  <div class="modal-backdrop" id="tosModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('tosModal')">✕</button>
+      <p class="modal-subtitle">Echo Services</p>
+      <h2>Terms of Service</h2>
+      <p>Last updated: 2025</p>
+      <h3>Services</h3>
+      <p>Echo Services provides custom Discord bot development. All bots are built to the specifications agreed upon at the time of order. Work begins only after payment or agreement has been confirmed.</p>
+      <h3>Payment</h3>
+      <p>Payment is accepted via Robux (Gamepass) or PayPal. For Robux payments, a gamepass will be set up at the agreed price. Payment is due before delivery unless otherwise agreed. Custom pricing orders will have pricing discussed privately before any work begins.</p>
+      <h3>Revisions</h3>
+      <p>The number of revisions included depends on your tier. Any revisions beyond the included amount may be charged additionally. Revisions must relate to the original agreed specification.</p>
+      <h3>Delivery</h3>
+      <p>Delivery times vary based on complexity and current workload, particularly during slow periods. You will be given an estimated timeline at the start of your order.</p>
+      <h3>Refunds</h3>
+      <p>Refunds are not provided once work has begun. If a project cannot be completed due to reasons on our end, a full refund will be issued.</p>
+      <h3>Your responsibilities</h3>
+      <p>You are responsible for providing accurate server information, maintaining communication, and ensuring your Discord DMs are open. Echo Services is not responsible for delays caused by lack of response from the client.</p>
+      <h3>Ownership</h3>
+      <p>Upon full payment, you own the bot and its code as delivered. Echo Services retains no claim over the delivered product.</p>
+      <h3>Prohibited use</h3>
+      <p>Bots may not be used for illegal purposes, harassment, or violation of Discord's Terms of Service. Echo Services reserves the right to refuse any order.</p>
+    </div>
+  </div>
+</body>
+</html>
