@@ -28,12 +28,12 @@
       color: var(--text);
       font-family: var(--font-display);
       overflow-x: hidden;
-      cursor: auto;
+      cursor: none;
     }
 
     /* ─── CUSTOM CURSOR ─────────────────────────────────── */
     .cursor {
-      position: fixed; top: 0; left: 0; z-index: 9999;
+      position: fixed; top: 0; left: 0; z-index: 99999;
       pointer-events: none;
       mix-blend-mode: difference;
     }
@@ -43,6 +43,7 @@
       border-radius: 50%;
       transform: translate(-50%, -50%);
       transition: transform 0.1s;
+      position: fixed;
     }
     .cursor-ring {
       width: 32px; height: 32px;
@@ -51,6 +52,20 @@
       transform: translate(-50%, -50%);
       transition: all 0.2s ease;
       opacity: 0.6;
+      position: fixed;
+    }
+    .cursor.hover .cursor-ring {
+      transform: translate(-50%, -50%) scale(1.5);
+      opacity: 0.3;
+    }
+    .cursor.hover .cursor-dot {
+      transform: translate(-50%, -50%) scale(0.5);
+    }
+
+    /* Show default cursor on touch devices */
+    @media (pointer: coarse) {
+      body { cursor: auto; }
+      .cursor { display: none; }
     }
 
     /* ─── NOISE TEXTURE ─────────────────────────────────── */
@@ -473,7 +488,7 @@
 <body>
 
   <!-- Custom Cursor -->
-  <div class="cursor">
+  <div class="cursor" id="cursor">
     <div class="cursor-ring" id="cursorRing"></div>
     <div class="cursor-dot" id="cursorDot"></div>
   </div>
@@ -620,17 +635,33 @@
 
   <script>
     // ─── CURSOR ──────────────────────────────────────────
+    const cursor = document.getElementById('cursor');
     const ring = document.getElementById('cursorRing');
     const dot = document.getElementById('cursorDot');
     let mx = 0, my = 0, rx = 0, ry = 0;
-    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    
+    document.addEventListener('mousemove', e => { 
+      mx = e.clientX; 
+      my = e.clientY; 
+    });
+    
     function animCursor() {
-      rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12;
-      dot.style.left = mx + 'px'; dot.style.top = my + 'px';
-      ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+      rx += (mx - rx) * 0.12; 
+      ry += (my - ry) * 0.12;
+      dot.style.left = mx + 'px'; 
+      dot.style.top = my + 'px';
+      ring.style.left = rx + 'px'; 
+      ring.style.top = ry + 'px';
       requestAnimationFrame(animCursor);
     }
     animCursor();
+
+    // Hover effect on interactive elements
+    const interactiveElements = document.querySelectorAll('a, button, input, select, textarea, .service-card, .pricing-card');
+    interactiveElements.forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+    });
 
     // ─── TICKER ──────────────────────────────────────────
     const tickerItems = [
