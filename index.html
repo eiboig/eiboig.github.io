@@ -261,6 +261,59 @@
       color: var(--muted); line-height: 1.6;
     }
 
+    /* ─── FEATURED WORK ─────────────────────────────────── */
+    .work-section { background: var(--bg2); }
+    .work-grid {
+      margin-top: 3rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+    .work-card {
+      background: var(--bg2); padding: 2rem;
+      display: flex; flex-direction: column;
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 0.5s, transform 0.5s, background 0.25s;
+    }
+    .work-card.visible { opacity: 1; transform: translateY(0); }
+    .work-card:hover { background: var(--surface); }
+    .work-card-name {
+      font-size: 1rem; font-weight: 700;
+      color: var(--text); margin-bottom: 0.35rem;
+    }
+    .work-card-desc {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      color: var(--muted); line-height: 1.6; flex: 1;
+    }
+    .work-card-server {
+      font-family: var(--font-mono); font-size: 0.68rem;
+      color: var(--accent); letter-spacing: 0.05em;
+      text-transform: uppercase; margin-top: 1rem;
+    }
+    .work-card-server::before { content: '// '; color: var(--muted); }
+    .btn-view-server {
+      display: inline-block; margin-top: 0.75rem;
+      background: transparent; color: var(--accent);
+      border: 1px solid rgba(0,229,196,0.3);
+      padding: 0.45rem 1rem;
+      font-family: var(--font-mono); font-size: 0.72rem;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      text-decoration: none; cursor: none;
+      transition: all 0.2s; align-self: flex-start;
+    }
+    .btn-view-server:hover {
+      background: var(--accent); color: var(--bg);
+      border-color: var(--accent);
+    }
+
+    /* Brave / no-custom-cursor override */
+    body.no-custom-cursor,
+    body.no-custom-cursor * { cursor: auto !important; }
+    body.no-custom-cursor a,
+    body.no-custom-cursor button,
+    body.no-custom-cursor [role="button"] { cursor: pointer !important; }
+
     /* ─── PRICING ───────────────────────────────────────── */
     .pricing-section { background: var(--bg2); }
     .pricing-grid {
@@ -534,6 +587,15 @@
     </div>
   </section>
 
+  <!-- Featured Work -->
+  <section id="featured-work" class="work-section">
+    <div class="container">
+      <p class="section-label">// Featured Work</p>
+      <h2 class="section-title">Bots we've<br>shipped.</h2>
+      <div class="work-grid" id="workGrid"></div>
+    </div>
+  </section>
+
   <!-- Pricing -->
   <section id="pricing" class="pricing-section">
     <div class="container">
@@ -626,6 +688,7 @@
 
   <footer>
     <div>© 2025 <span>Echo Services</span> — Custom Discord Bot Development</div>
+    <div id="visitCounter" style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);opacity:0.45;"></div>
     <div class="footer-legal">
       <button onclick="openModal('privacyModal')">Privacy Policy</button>
       <button onclick="openModal('tosModal')">Terms of Service</button>
@@ -634,33 +697,50 @@
   </footer>
 
   <script>
+    // ─── CONFIG ────────────────────────────────────
+    const BACKEND_URL = 'https://palm-card-required-harry.trycloudflare.com';
+
     // ─── CURSOR ──────────────────────────────────────────
     const cursor = document.getElementById('cursor');
     const ring = document.getElementById('cursorRing');
     const dot = document.getElementById('cursorDot');
-    let mx = 0, my = 0, rx = 0, ry = 0;
-    
-    document.addEventListener('mousemove', e => { 
-      mx = e.clientX; 
-      my = e.clientY; 
-    });
-    
-    function animCursor() {
-      rx += (mx - rx) * 0.12; 
-      ry += (my - ry) * 0.12;
-      dot.style.left = mx + 'px'; 
-      dot.style.top = my + 'px';
-      ring.style.left = rx + 'px'; 
-      ring.style.top = ry + 'px';
-      requestAnimationFrame(animCursor);
-    }
-    animCursor();
+    let _customCursorActive = false;
 
-    // Hover effect on interactive elements
-    const interactiveElements = document.querySelectorAll('a, button, input, select, textarea, .service-card, .pricing-card');
-    interactiveElements.forEach(el => {
-      el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
-      el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+    (async () => {
+      // Detect Brave browser and fall back to system cursor for performance
+      let isBrave = false;
+      if (navigator.brave && typeof navigator.brave.isBrave === 'function') {
+        try { isBrave = await navigator.brave.isBrave(); } catch (_) {}
+      }
+      if (isBrave) {
+        document.body.classList.add('no-custom-cursor');
+        cursor.style.display = 'none';
+        return;
+      }
+
+      _customCursorActive = true;
+      let mx = 0, my = 0, rx = 0, ry = 0;
+      document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+      function animCursor() {
+        rx += (mx - rx) * 0.12;
+        ry += (my - ry) * 0.12;
+        dot.style.left = mx + 'px';
+        dot.style.top = my + 'px';
+        ring.style.left = rx + 'px';
+        ring.style.top = ry + 'px';
+        requestAnimationFrame(animCursor);
+      }
+      animCursor();
+    })();
+
+    // Cursor hover via event delegation — covers dynamically rendered cards too
+    const HOVER_SEL = 'a, button, input, select, textarea, .service-card, .pricing-card, .work-card, .btn-view-server';
+    document.addEventListener('mouseover', e => {
+      if (_customCursorActive && e.target.closest(HOVER_SEL)) cursor.classList.add('hover');
+    });
+    document.addEventListener('mouseout', e => {
+      if (_customCursorActive && e.target.closest(HOVER_SEL)) cursor.classList.remove('hover');
     });
 
     // ─── TICKER ──────────────────────────────────────────
@@ -726,6 +806,50 @@
       </div>
     `).join('');
 
+    // ─── FEATURED WORK (live from backend) ─────────────────
+    (async () => {
+      const grid = document.getElementById('workGrid');
+      try {
+        const res     = await fetch(`${BACKEND_URL}/work`);
+        const entries = await res.json();
+
+        if (!Array.isArray(entries) || entries.length === 0) {
+          grid.style.background = 'none';
+          grid.innerHTML = `
+            <div style="padding:3rem 2rem;font-family:var(--font-mono);font-size:0.8rem;
+              color:var(--muted);grid-column:1/-1;text-align:center;border:1px dashed var(--border);">
+              // No featured work yet — check back soon.
+            </div>`;
+          return;
+        }
+
+        // Sanitise text content before inserting
+        const esc = s => s.replace(/[&<>"']/g, c =>
+          ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+        grid.innerHTML = entries.map(w => `
+          <div class="work-card">
+            <div class="work-card-name">${esc(w.botName)}</div>
+            <div class="work-card-desc">${esc(w.description)}</div>
+            <div class="work-card-server">${esc(w.serverName)}</div>
+            <a href="${esc(w.invite)}" target="_blank" rel="noopener noreferrer"
+               class="btn-view-server">View Server →</a>
+          </div>
+        `).join('');
+
+        // Register each freshly-rendered card with the scroll observer
+        grid.querySelectorAll('.work-card').forEach(el => observer.observe(el));
+
+      } catch {
+        grid.style.background = 'none';
+        grid.innerHTML = `
+          <div style="padding:2rem;font-family:var(--font-mono);font-size:0.78rem;
+            color:var(--muted);grid-column:1/-1;border:1px dashed var(--border);">
+            // Could not load featured work.
+          </div>`;
+      }
+    })();
+
     // ─── SCROLL REVEAL ────────────────────────────────────
     const observer = new IntersectionObserver(entries => {
       entries.forEach((e, i) => {
@@ -735,6 +859,7 @@
         }
       });
     }, { threshold: 0.1 });
+    // Service and pricing cards are static — observe them immediately
     document.querySelectorAll('.service-card, .pricing-card').forEach(el => observer.observe(el));
 
     // ─── STATUS POLLING ───────────────────────────────────
@@ -757,6 +882,18 @@
     fetchStatus();
     setInterval(fetchStatus, 30000);
 
+    // ─── VISIT COUNTER ──────────────────────────────────
+    (async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/visit`, { method: 'POST' });
+        const json = await res.json();
+        const el = document.getElementById('visitCounter');
+        if (el && typeof json.count === 'number') {
+          el.textContent = json.count.toLocaleString() + ' visits';
+        }
+      } catch (_) {}
+    })();
+
     // ─── MODAL CONTROLS ──────────────────────────────────
     function openModal(id) {
       document.getElementById(id).classList.add('active');
@@ -774,9 +911,6 @@
     });
 
     // ─── FORM SUBMIT ──────────────────────────────────────
-    // ⚠️  Replace this URL with your Railway/Render deployment URL
-    const BACKEND_URL = 'https://palm-card-required-harry.trycloudflare.com';
-
     document.getElementById('inquiryForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('submitBtn');
@@ -905,14 +1039,15 @@
       <div class="modal-icon">📨</div>
       <h2>Inquiry Sent!</h2>
       <span class="modal-subtitle">Echo Services</span>
-      <p id="successMessage">Your inquiry has been received. I'll reach out to you on Discord as soon as possible.💬 Join our Discord for faster responses and direct contact — <a href="https://discord.gg/YDJqdCDmrU" target="_blank">Join Server →</a></p>
+      <p id="successMessage">Your inquiry has been received. I'll reach out to you on Discord as soon as possible.</p>
+      <p style="font-family:var(--font-mono);font-size:0.78rem;color:var(--muted);margin-top:0.5rem;">💬 Join our Discord for faster responses and direct contact — <a href="https://discord.gg/YDJqdCDmrU" target="_blank" style="color:var(--accent);">Join Server →</a></p>
       <div class="order-id" id="successOrderId"></div>
       <ul class="checklist">
         <li>Your inquiry has been sent directly to my Discord</li>
-        <li>**KEEP TRACK OF YOUR ORDER ID** This is important for reference in future communications.</li>
+        <li>Keep track of your Order ID — this is important for reference in future communications.</li>
         <li>I'll review your project details and get back to you</li>
         <li>Expect a reply within 24 hours</li>
-        <li>**Make sure your DMs and or friend request are open** so I can reach you</li>
+        <li>Make sure your DMs and friend requests are open so I can reach you</li>
       </ul>
     </div>
   </div>
