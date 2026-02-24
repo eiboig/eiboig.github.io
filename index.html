@@ -903,8 +903,10 @@
       document.getElementById(id).classList.remove('active');
       document.body.style.overflow = '';
     }
-    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-      backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(backdrop.id); });
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+        backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(backdrop.id); });
+      });
     });
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.active').forEach(m => closeModal(m.id));
@@ -960,6 +962,7 @@
       btn.textContent = 'Send Inquiry \u2192';
     });
     // ─── CONTACT FORM ─────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('contactForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('contactBtn');
@@ -1002,6 +1005,7 @@
       btn.disabled = false;
       btn.textContent = 'Send Message →';
     });
+    }); // end DOMContentLoaded
   </script>
 
   <!-- ─── CONTACT MODAL ────────────────────────────────────────────── -->
@@ -1040,7 +1044,7 @@
       <h2>Inquiry Sent!</h2>
       <span class="modal-subtitle">Echo Services</span>
       <p id="successMessage">Your inquiry has been received. I'll reach out to you on Discord as soon as possible.</p>
-      <p style="font-family:var(--font-mono);font-size:0.78rem;color:var(--muted);margin-top:0.5rem;">💬 Join our Discord for faster responses and direct contact — <a href="https://discord.gg/YDJqdCDmrU" target="_blank" style="color:var(--accent);">Join Server →</a></p>
+      <p style="font-family:var(--font-mono);font-size:0.78rem;color:var(--muted);margin-top:0.5rem;">💬 Join our Discord for faster responses and direct contact — <a href="https://discord.gg/y32aHXf29r" target="_blank" style="color:var(--accent);">Join Server →</a></p>
       <div class="order-id" id="successOrderId"></div>
       <ul class="checklist">
         <li>Your inquiry has been sent directly to my Discord</li>
@@ -1068,7 +1072,7 @@
       <h3>Discord IDs</h3>
       <p>Your Discord ID is used only to identify you for the purposes of your order and to facilitate direct communication. It is never shared publicly.</p>
       <h3>Contact</h3>
-      <p>If you have questions about your data, contact us directly via Discord: <span style="color:var(--accent)">776208075009818636</span></p>
+      <p>If you have questions about your data, contact us directly via <a href="https://discord.gg/y32aHXf29r" target="_blank" style="color:var(--accent)">Discord</a>.</p>
     </div>
   </div>
 
