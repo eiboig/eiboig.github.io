@@ -35,6 +35,8 @@ const CONFIG = {
   PREFIX:            "!",
   CONFIG_FILE:       "./config.json",
   ORDERS_FILE:       "./orders.json",
+  VISITS_FILE:       "./visits.json",
+  WORK_FILE:         "./work.json",
   MAX_ORDERS_MEMORY: 500,
 };
 
@@ -85,6 +87,34 @@ async function saveOrders(orders) {
   await fs.writeFile(CONFIG.ORDERS_FILE, JSON.stringify(orders, null, 2));
 }
 
+// ─── VISIT COUNTER ─────────────────────────────────────────────────────────
+async function loadVisits() {
+  try {
+    const data = await fs.readFile(CONFIG.VISITS_FILE, "utf8");
+    return JSON.parse(data);
+  } catch {
+    return { count: 0 };
+  }
+}
+
+async function saveVisits(data) {
+  await fs.writeFile(CONFIG.VISITS_FILE, JSON.stringify(data, null, 2));
+}
+
+// ─── FEATURED WORK ───────────────────────────────────────────────────────
+async function loadWork() {
+  try {
+    const data = await fs.readFile(CONFIG.WORK_FILE, "utf8");
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+async function saveWork(entries) {
+  await fs.writeFile(CONFIG.WORK_FILE, JSON.stringify(entries, null, 2));
+}
+
 // ─── STATUS ────────────────────────────────────────────────────────────────
 let currentStatus = "open";
 const STATUS_DISPLAY = {
@@ -94,17 +124,14 @@ const STATUS_DISPLAY = {
 };
 
 // ─── CATEGORY METADATA ─────────────────────────────────────────────────────
+// Keys match the "Server Type" options in the frontend inquiry form
 const CATEGORY_META = {
-  "ERLC / Roblox Bot":  { color: 0xff7b3a, emoji: "🚔" },
-  "Moderation Bot":     { color: 0x5865f2, emoji: "🛡️" },
-  "Economy Bot":        { color: 0xf5c518, emoji: "🪙" },
-  "Ticket System":      { color: 0x00c8e0, emoji: "🎟️" },
-  "Music Bot":          { color: 0xff2d78, emoji: "🎵" },
-  "Application Bot":    { color: 0x3dffa0, emoji: "📋" },
-  "Leveling / XP Bot":  { color: 0xbf5fff, emoji: "⭐" },
-  "Dashboard / Panel":  { color: 0x1a6fff, emoji: "📊" },
-  "Full Custom Bot":    { color: 0x6ee7f7, emoji: "⚡" },
-  "Other / Not Sure":   { color: 0x888888, emoji: "❓" },
+  "ERLC / Roblox RP":   { color: 0xff7b3a, emoji: "🚔" },
+  "Gaming Community":   { color: 0x5865f2, emoji: "🎮" },
+  "Study / Education":  { color: 0x3dffa0, emoji: "📚" },
+  "Business / Brand":   { color: 0x1a6fff, emoji: "💼" },
+  "General Community":  { color: 0x00c8e0, emoji: "🌐" },
+  "Other":              { color: 0x888888, emoji: "❓" },
 };
 
 // ─── UTILS ─────────────────────────────────────────────────────────────────
@@ -216,9 +243,9 @@ client.on("messageCreate", async (msg) => {
       new EmbedBuilder().setColor(0x7b6ff0).setTitle(`🗂️ Order — ${order.uuid.slice(0,8)}`)
         .addFields(
           { name: "UUID",         value: `\`${order.uuid}\``,                      inline: false },
-          { name: "💬 Client",    value: order.discordUsername,                     inline: true  },
-          { name: "🖥️ Server",    value: order.serverName,                          inline: true  },
-          { name: "🔧 Service",   value: order.serviceType || "N/A",                inline: true  },
+          { name: "💬 Client",      value: order.discordUsername,                     inline: true  },
+          { name: "🖥️ Server",      value: order.serverName,                          inline: true  },
+          { name: "🌐 Server Type", value: order.serviceType || "N/A",                inline: true  },
           { name: "💰 Budget",    value: order.budget,                              inline: true  },
           { name: "💳 Payment",   value: order.paymentMethod,                       inline: true  },
           { name: "📊 Status",    value: order.status,                              inline: true  },
@@ -268,6 +295,68 @@ client.on("messageCreate", async (msg) => {
     return msg.reply(`🗒️ Note saved on \`${orders[idx].uuid.slice(0,8)}\`.`);
   }
 
+  // !addwork <Bot Name> | <Short description> | <Server Name> | <invite link>
+  if (cmd === "addwork") {
+    const raw = msg.content.slice(CONFIG.PREFIX.length + cmd.length).trim();
+    const parts = raw.split("|").map(s => s.trim());
+    if (parts.length < 4 || parts.some(p => !p)) {
+      return msg.reply(
+        "❌ Usage: `!addwork Bot Name | Short description | Server Name | https://discord.gg/invite`\n" +
+        "Separate each field with a pipe `|` character."
+      );
+    }
+    const [botName, description, serverName, invite] = parts;
+    if (!invite.startsWith("http")) {
+      return msg.reply("❌ Invite link must start with `https://`");
+    }
+    const entries = await loadWork();
+    const entry = {
+      id:          randomUUID().slice(0, 8),
+      botName,
+      description,
+      serverName,
+      invite,
+      addedAt:     new Date().toISOString(),
+    };
+    entries.push(entry);
+    await saveWork(entries);
+    return msg.reply({ embeds: [
+      new EmbedBuilder().setColor(0x00e5c4).setTitle("✅ Featured Work Added")
+        .addFields(
+          { name: "🤖 Bot Name",    value: botName,     inline: true },
+          { name: "🖥️ Server",      value: serverName,  inline: true },
+          { name: "🆔 ID",          value: `\`${entry.id}\``, inline: true },
+          { name: "🔗 Invite",      value: invite,      inline: false },
+          { name: "📝 Description", value: description, inline: false },
+        ).setFooter({ text: "This will appear live on the website immediately." }).setTimestamp()
+    ]});
+  }
+
+  // !removework <id>
+  if (cmd === "removework") {
+    if (!args[1]) return msg.reply("❌ Usage: `!removework <id>` — use `!listwork` to find IDs");
+    const entries = await loadWork();
+    const idx     = entries.findIndex(e => e.id === args[1]);
+    if (idx === -1) return msg.reply(`❌ No featured work entry found with ID \`${args[1]}\``);
+    const [removed] = entries.splice(idx, 1);
+    await saveWork(entries);
+    return msg.reply(`🗑️ Removed **${removed.botName}** (\`${removed.id}\`) from featured work.`);
+  }
+
+  // !listwork
+  if (cmd === "listwork") {
+    const entries = await loadWork();
+    if (!entries.length) return msg.reply("📭 No featured work entries yet. Use `!addwork` to add one.");
+    const lines = entries.map((e, i) =>
+      `**${i + 1}.** \`${e.id}\` — **${e.botName}** @ ${e.serverName}`
+    ).join("\n");
+    return msg.reply({ embeds: [
+      new EmbedBuilder().setColor(0x7b6ff0).setTitle(`🗂️ Featured Work (${entries.length})`)
+        .setDescription(lines)
+        .setFooter({ text: "Use !removework <id> to remove an entry" }).setTimestamp()
+    ]});
+  }
+
   // !help
   if (cmd === "help") {
     return msg.reply({ embeds: [
@@ -286,6 +375,10 @@ client.on("messageCreate", async (msg) => {
           { name: "`!unpaid <id>`",              value: "Mark order unpaid ⏳",                inline: false },
           { name: "`!setstatus <id> <text>`",    value: "Set order status",                    inline: false },
           { name: "`!note <id> <text>`",         value: "Add note to order",                   inline: false },
+          { name: "**Featured Work**",            value: "\u200b",                              inline: false },
+          { name: "`!addwork`",                  value: "Add a bot to the website's Featured Work section", inline: false },
+          { name: "`!listwork`",                 value: "List all featured work entries + IDs", inline: false },
+          { name: "`!removework <id>`",          value: "Remove a featured work entry",         inline: false },
         ).setFooter({ text: "Echo Services Bot" }).setTimestamp()
     ]});
   }
@@ -373,6 +466,24 @@ const contactLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// One counted visit per IP per hour to prevent counter inflation
+const visitLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req, res) => false,
+  handler: async (req, res) => {
+    // Still return the current count even when rate-limited, just don't increment
+    try {
+      const data = await loadVisits();
+      return res.json({ count: data.count });
+    } catch {
+      return res.json({ count: 0 });
+    }
+  },
+});
+
 // GET / — health check
 app.get("/", (req, res) => {
   res.json({ status: "Echo Services online 🟢", bot: client.user?.tag || "starting..." });
@@ -382,6 +493,30 @@ app.get("/", (req, res) => {
 app.get("/status", (req, res) => {
   const s = STATUS_DISPLAY[currentStatus];
   res.json({ status: currentStatus, label: s.label, emoji: s.emoji });
+});
+
+// GET /work — returns featured work entries for the website
+app.get("/work", async (req, res) => {
+  try {
+    const entries = await loadWork();
+    res.json(entries);
+  } catch (err) {
+    console.error("GET /work error:", err.message);
+    res.status(500).json([]);
+  }
+});
+
+// POST /visit — page visit counter
+app.post("/visit", visitLimiter, async (req, res) => {
+  try {
+    const data = await loadVisits();
+    data.count = (data.count || 0) + 1;
+    await saveVisits(data);
+    return res.json({ count: data.count });
+  } catch (err) {
+    console.error("POST /visit error:", err.message);
+    return res.status(500).json({ count: 0 });
+  }
 });
 
 // POST /inquiry ─────────────────────────────────────────────────────────────
@@ -438,13 +573,14 @@ app.post("/inquiry", inquiryLimiter, async (req, res) => {
       .setTimestamp()
       .setFooter({ text: `Echo Services  •  Order: ${uuid.slice(0,8)}` })
       .addFields(
-        { name: "👤 Discord",      value: `${discordUsername}\n<@${clientDiscordId}>`,                inline: true  },
-        { name: "🖥️ Server",       value: `${serverName}\n${serverInvite || "No invite provided"}`,  inline: true  },
-        { name: "\u200b",          value: "\u200b",                                                    inline: true  },
-        { name: "💰 Budget",       value: budgetDisplay,                                               inline: true  },
-        { name: "💳 Payment",      value: paymentMethod,                                               inline: true  },
-        { name: "📊 Status",       value: "⏳ Pending",                                               inline: true  },
-        { name: "📝 Requirements", value: projectDetails.slice(0, 1024),                              inline: false },
+          { name: "👤 Discord",       value: `${discordUsername}\n<@${clientDiscordId}>`,                inline: true  },
+        { name: "🖥️ Server",        value: `${serverName}\n${serverInvite || "No invite provided"}`,  inline: true  },
+        { name: "\u200b",           value: "\u200b",                                                    inline: true  },
+        { name: "💰 Budget",        value: budgetDisplay,                                               inline: true  },
+        { name: "💳 Payment",       value: paymentMethod,                                               inline: true  },
+        { name: "🗂️ Server Type",   value: serverType,                                                  inline: true  },
+        { name: "📊 Status",        value: "⏳ Pending",                                               inline: true  },
+        { name: "📝 Requirements",  value: projectDetails.slice(0, 1024),                              inline: false },
         ...(isCustomBudget ? [{ name: "💡 Note", value: "Custom budget — reach out to discuss pricing first.", inline: false }] : []),
       );
 

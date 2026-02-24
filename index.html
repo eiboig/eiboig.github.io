@@ -777,19 +777,19 @@
     // ─── PRICING ─────────────────────────────────────────
     const plans = [
       {
-        tier: 'Basic', price: '~$5', robux: '500 R$',
-        features: ['Up to 5 custom commands', 'Basic API calls', 'Ticket system or logging', 'Simple role management', '1 revision included'],
+        tier: 'Basic', robux: '500 R$', price: '~$5', hosting: '250R$ or $2/mo',
+        features: ['Up to 5 custom commands', 'Basic API calls', 'Ticket system or logging', 'Simple role management', '1 revision included', 'Full code ownership included'],
         cta: 'Get Started'
       },
       {
-        tier: 'Standard', price: '~$10', robux: '1,000 R$',
+        tier: 'Standard', robux: '1,000 R$', price: '~$10', hosting: '250R$ or $2/mo',
         featured: true,
-        features: ['Everything in Basic', 'Up to 15 custom commands', 'Advanced API integrations', 'Embed builders & announcement tools', 'Multiple revisions'],
+        features: ['Everything in Basic', 'Up to 15 custom commands', 'Advanced API integrations', 'Embed builders & announcement tools', 'Multiple revisions', 'Full code ownership included'],
         cta: 'Most Popular'
       },
       {
-        tier: 'Premium', price: 'Custom', robux: 'DM for quote',
-        features: ['Unlimited commands', 'Everything in Standard', 'Multi-department systems', 'Full automation flows', 'Priority turnaround'],
+        tier: 'Premium', price: 'Custom', robux: 'DM for quote', hosting: '250R$ or $2/mo',
+        features: ['Unlimited commands', 'Everything in Standard', 'Multi-department systems', 'Full automation flows', 'Priority turnaround', 'Full code ownership included'],
         cta: 'Contact Me'
       }
     ];
@@ -802,7 +802,8 @@
         <ul class="pricing-features">
           ${p.features.map(f => `<li>${f}</li>`).join('')}
         </ul>
-        <a href="#contact" class="btn-primary" style="display:block;text-align:center;font-size:0.78rem;">${p.cta} →</a>
+        ${p.hosting ? `<div style="margin:1rem 0 0.5rem;padding:0.6rem 0.85rem;background:rgba(0,229,196,0.07);border:1px solid rgba(0,229,196,0.18);font-family:var(--font-mono);font-size:0.7rem;color:var(--accent);"><span style="color:var(--muted);margin-right:0.4rem;">+</span>24/7 Uptime &amp; Maintenance — <strong>${p.hosting}</strong></div>` : ''}
+        <a href="#contact" class="btn-primary" style="display:block;text-align:center;font-size:0.78rem;margin-top:1rem;">${p.cta} →</a>
       </div>
     `).join('');
 

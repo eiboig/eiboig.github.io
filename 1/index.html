@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECHO SERVICES // CONTROL</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #080a0c;
+    --bg2:     #0e1215;
+    --bg3:     #141a1f;
+    --border:  #1e2830;
+    --border2: #2a3540;
+    --amber:   #e8a020;
+    --amber2:  #f5c04a;
+    --amber-dim:#7a5010;
+    --green:   #2dba5a;
+    --red:     #e0433a;
+    --blue:    #3a9eff;
+    --muted:   #4a6070;
+    --text:    #c8d8e4;
+    --text2:   #8aa0b0;
+    --mono:    'IBM Plex Mono', monospace;
+    --sans:    'IBM Plex Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 14px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Scanlines overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.12) 2px,
+      rgba(0,0,0,0.12) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ── Header ── */
+  #header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--amber-dim);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo-badge {
+    background: var(--amber);
+    color: var(--bg);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    letter-spacing: 2px;
+  }
+  .logo-title {
+    color: var(--amber);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+  }
+  .logo-sep { color: var(--muted); }
+  .logo-sub { color: var(--text2); font-size: 11px; letter-spacing: 1px; }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .clock {
+    color: var(--amber);
+    font-size: 12px;
+    letter-spacing: 1px;
+    opacity: 0.8;
+  }
+  #deploy-btn {
+    background: transparent;
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  #deploy-btn:hover { background: var(--amber); color: var(--bg); }
+
+  /* ── Stats Bar ── */
+  #stats-bar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.5px;
+  }
+  .stat-label { color: var(--muted); text-transform: uppercase; font-size: 9px; letter-spacing: 2px; margin-right: 2px; }
+  .stat-val { color: var(--amber); font-weight: 500; }
+  .meter {
+    width: 70px;
+    height: 4px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .meter-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: var(--amber);
+    transition: width 0.6s ease;
+  }
+  .meter-fill.hot { background: var(--red); }
+
+  .stat-sep { color: var(--border2); font-size: 18px; }
+  #stats-refresh { margin-left: auto; color: var(--muted); font-size: 10px; letter-spacing: 1px; }
+
+  /* ── Main grid ── */
+  #main {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .bots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+
+  /* ── Bot Card ── */
+  .bot-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    transition: border-color 0.2s;
+    position: relative;
+  }
+  .bot-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .bot-card.online::before  { background: var(--green); }
+  .bot-card.offline::before { background: var(--red); }
+  .bot-card:hover { border-color: var(--border2); }
+
+  /* Card Header */
+  .card-top {
+    padding: 14px 16px 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    gap: 12px;
+  }
+  .card-top:hover { background: rgba(255,255,255,0.015); }
+
+  .bot-ident { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+  .status-pip {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .status-pip.online  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .status-pip.offline { background: var(--red); }
+
+  .bot-name-block {}
+  .bot-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+  .bot-desc { font-size: 10px; color: var(--muted); margin-top: 1px; letter-spacing: 0.5px; }
+
+  .bot-status-text {
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .bot-status-text.online  { border-color: var(--green); color: var(--green); }
+  .bot-status-text.offline { border-color: var(--red); color: var(--red); }
+
+  .card-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .act-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+  }
+  .act-btn:hover       { border-color: var(--amber); color: var(--amber); }
+  .act-btn.start:hover { border-color: var(--green); color: var(--green); }
+  .act-btn.stop:hover  { border-color: var(--red); color: var(--red); }
+  .act-btn:disabled    { opacity: 0.3; cursor: not-allowed; }
+
+  .chevron {
+    color: var(--muted);
+    font-size: 10px;
+    transition: transform 0.2s;
+    margin-left: 4px;
+  }
+  .chevron.open { transform: rotate(180deg); }
+
+  /* Card Body */
+  .card-body {
+    display: none;
+    border-top: 1px solid var(--border);
+  }
+  .card-body.open { display: block; }
+
+  /* Log Panel */
+  .log-panel { padding: 14px 16px 14px 18px; }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .panel-title {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .live-dot {
+    display: none;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 1.5s infinite;
+  }
+  .live-dot.active { display: inline-block; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .live-label { color: var(--green); font-size: 9px; letter-spacing: 2px; }
+
+  .log-box {
+    background: #050709;
+    border: 1px solid var(--border);
+    height: 190px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 10px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+  .log-box::-webkit-scrollbar { width: 4px; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border2); }
+  .log-line { color: #506070; white-space: pre-wrap; word-break: break-all; }
+  .log-line.ll-err  { color: var(--red); }
+  .log-line.ll-warn { color: var(--amber); }
+  .log-line.ll-info { color: var(--blue); }
+  .log-line.ll-ok   { color: var(--green); }
+  .log-line.ll-sys  { color: var(--muted); font-style: italic; }
+
+  /* Command Panel */
+  .cmd-panel { padding: 0 16px 14px 18px; }
+  .cmd-row { display: flex; gap: 6px; }
+  .cmd-input {
+    flex: 1;
+    background: #050709;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .cmd-input::placeholder { color: var(--muted); }
+  .cmd-input:focus { border-color: var(--amber-dim); }
+  .cmd-run {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 8px 16px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.12s;
+  }
+  .cmd-run:hover { border-color: var(--amber); color: var(--amber); }
+  .cmd-output {
+    display: none;
+    margin-top: 8px;
+    background: #050709;
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    font-size: 11px;
+    color: var(--text2);
+    max-height: 100px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    scrollbar-width: thin;
+  }
+  .cmd-output.visible { display: block; }
+  .cmd-output.ok  { color: var(--green); }
+  .cmd-output.err { color: var(--red); }
+  .cmd-output.warn { color: var(--amber); }
+
+  /* ── Deploy Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--amber-dim);
+    width: 560px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 0 60px rgba(232,160,32,0.08);
+    scrollbar-width: thin;
+  }
+  .modal-head {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-head h3 { color: var(--amber); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; }
+  .modal-close {
+    background: none; border: none;
+    color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1;
+    transition: color 0.15s;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-body { padding: 20px 24px; }
+  .modal-foot { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+  .fgroup { margin-bottom: 18px; }
+  .flabel {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+  .flabel .req { color: var(--amber); }
+  .finput {
+    width: 100%;
+    background: #050709;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .finput:focus { border-color: var(--amber-dim); }
+  .fhint { font-size: 10px; color: var(--muted); margin-top: 5px; }
+
+  .file-drop-zone {
+    border: 1px dashed var(--border2);
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #050709;
+  }
+  .file-drop-zone:hover,
+  .file-drop-zone.drag { border-color: var(--amber); background: rgba(232,160,32,0.04); }
+  .drop-icon { font-size: 22px; margin-bottom: 8px; }
+  .drop-text { font-size: 11px; color: var(--muted); }
+  .drop-text strong { color: var(--amber); }
+  .file-chosen { font-size: 11px; color: var(--green); margin-top: 8px; display: none; }
+
+  .progress-box {
+    display: none;
+    background: #050709;
+    border: 1px solid var(--border);
+    padding: 12px;
+    font-size: 11px;
+    color: var(--text2);
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    margin-top: 14px;
+    scrollbar-width: thin;
+  }
+  .progress-box.visible { display: block; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--amber);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    padding: 11px 18px;
+    z-index: 500;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.25s;
+    pointer-events: none;
+    max-width: 320px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.ok   { border-left-color: var(--green); }
+  #toast.err  { border-left-color: var(--red); }
+
+  /* Scrollbar global */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  @media (max-width: 640px) {
+    .bots-grid { grid-template-columns: 1fr; }
+    #stats-bar { flex-wrap: wrap; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="logo">
+    <span class="logo-badge">SYS</span>
+    <span class="logo-title">ECHO SERVICES</span>
+    <span class="logo-sep">/</span>
+    <span class="logo-sub">BOT CONTROL</span>
+  </div>
+  <div class="header-right">
+    <span class="clock" id="clock">--:--:--</span>
+    <button id="deploy-btn" onclick="openDeploy()">+ DEPLOY BOT</button>
+  </div>
+</div>
+
+<!-- STATS BAR -->
+<div id="stats-bar">
+  <div class="stat-item">
+    <span class="stat-label">CPU</span>
+    <span class="stat-val" id="cpu-val">--</span>%
+    <div class="meter"><div class="meter-fill" id="cpu-bar" style="width:0%"></div></div>
+  </div>
+  <div class="stat-sep">|</div>
+  <div class="stat-item">
+    <span class="stat-label">RAM</span>
+    <span class="stat-val" id="ram-val">--</span>
+    <div class="meter"><div class="meter-fill" id="ram-bar" style="width:0%; background:var(--blue)"></div></div>
+  </div>
+  <div class="stat-sep">|</div>
+  <div class="stat-item">
+    <span class="stat-label">DISK</span>
+    <span class="stat-val" id="disk-val">--</span>
+  </div>
+  <span id="stats-refresh">FETCHING...</span>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="section-label">Active Processes</div>
+  <div class="bots-grid" id="bots-grid"></div>
+</div>
+
+<!-- DEPLOY MODAL -->
+<div class="modal-overlay" id="deploy-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Deploy New Bot</h3>
+      <button class="modal-close" onclick="closeDeploy()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="fgroup">
+        <label class="flabel">Bot Name <span class="req">*</span></label>
+        <input class="finput" id="d-name" placeholder="e.g.  mybot" autocomplete="off" />
+        <div class="fhint">Lowercase letters, numbers, hyphens only. Used as folder name + service name.</div>
+      </div>
+      <div class="fgroup">
+        <label class="flabel">Upload .py File <span class="req">*</span></label>
+        <div class="file-drop-zone" id="drop-zone" onclick="document.getElementById('d-file').click()">
+          <div class="drop-icon">📂</div>
+          <div class="drop-text"><strong>Click to select</strong> or drag &amp; drop your .py file</div>
+          <div class="file-chosen" id="file-chosen"></div>
+        </div>
+        <input type="file" id="d-file" accept=".py" style="display:none" onchange="onFilePick(this)" />
+      </div>
+      <div class="fgroup">
+        <label class="flabel">Entry Point</label>
+        <input class="finput" id="d-entry" placeholder="bot.py  (leave blank = uploaded filename)" autocomplete="off" />
+      </div>
+      <div class="fgroup">
+        <label class="flabel">pip Dependencies</label>
+        <input class="finput" id="d-deps" placeholder="aiosqlite, requests, pytz" autocomplete="off" />
+        <div class="fhint">Comma-separated. discord.py and python-dotenv are always included automatically.</div>
+      </div>
+      <div class="fgroup">
+        <label class="flabel">.env Contents <span style="font-weight:300;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <textarea class="finput" id="d-env" rows="4"
+          placeholder="DISCORD_TOKEN=your_token&#10;GUILD_ID=123456789"
+          style="resize:vertical; font-size:12px; line-height:1.5"></textarea>
+        <div class="fhint">Saved to ~/botname/.env automatically.</div>
+      </div>
+      <div class="progress-box" id="d-progress"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="act-btn" onclick="closeDeploy()">CANCEL</button>
+      <button id="d-submit" class="act-btn" style="border-color:var(--amber);color:var(--amber)"
+        onclick="runDeploy()">DEPLOY →</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+// Uses current hostname so it never breaks on IP change
+const API = `http://${window.location.hostname}:3000`;
+
+const BOTS = [
+  { id: 'londonbot',            name: 'LONDONBOT',       type: 'systemd', desc: 'Moderation · CLN · SQLite' },
+  { id: 'bot2',                 name: 'BOT2',            type: 'systemd', desc: 'Python bot' },
+  { id: 'texasrp',              name: 'TEXASRP',         type: 'systemd', desc: 'Texas RP bot' },
+  { id: 'discord-bot-backend',  name: 'NODE BACKEND',    type: 'pm2',     desc: 'Express · port 3000' },
+];
+
+const openSSE   = {};
+let   deployFile = null;
+
+// ── CLOCK ────────────────────────────────────────────────────────────────────
+function tickClock() {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ── RENDER BOT CARDS ────────────────────────────────────────────────────────
+function renderCards() {
+  const grid = document.getElementById('bots-grid');
+  grid.innerHTML = BOTS.map(b => `
+    <div class="bot-card" id="card-${b.id}">
+      <div class="card-top" onclick="toggleCard('${b.id}')">
+        <div class="bot-ident">
+          <div class="status-pip" id="pip-${b.id}"></div>
+          <div class="bot-name-block">
+            <div class="bot-name">${b.name}</div>
+            <div class="bot-desc">${b.desc}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="bot-status-text" id="stxt-${b.id}">UNKNOWN</span>
+          <div class="card-actions" onclick="event.stopPropagation()">
+            <button class="act-btn start" onclick="botAct('${b.id}','start')">START</button>
+            <button class="act-btn stop"  onclick="botAct('${b.id}','stop')">STOP</button>
+            <button class="act-btn"       onclick="botAct('${b.id}','restart')">RESTART</button>
+          </div>
+          <span class="chevron" id="chev-${b.id}">▼</span>
+        </div>
+      </div>
+      <div class="card-body" id="body-${b.id}">
+        <div class="log-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              LOGS
+              <span class="live-dot" id="ldot-${b.id}"></span>
+              <span class="live-label" id="llbl-${b.id}" style="display:none">LIVE</span>
+            </div>
+            <button class="act-btn" style="font-size:9px;padding:3px 8px"
+              onclick="clearLog('${b.id}')">CLEAR</button>
+          </div>
+          <div class="log-box" id="log-${b.id}">
+            <div class="log-line ll-sys">// Expand to begin streaming...</div>
+          </div>
+        </div>
+        <div class="cmd-panel">
+          <div class="panel-title" style="margin-bottom:8px">QUICK COMMAND</div>
+          <div class="cmd-row">
+            <input class="cmd-input" id="cmd-${b.id}"
+              placeholder="pip install X    ls -la    cat .env    systemctl status ${b.id}"
+              onkeydown="if(event.key==='Enter')runCmd('${b.id}')" />
+            <button class="cmd-run" onclick="runCmd('${b.id}')">RUN</button>
+          </div>
+          <div class="cmd-output" id="cmo-${b.id}"></div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── TOGGLE CARD ──────────────────────────────────────────────────────────────
+function toggleCard(id) {
+  const body = document.getElementById(`body-${id}`);
+  const chev = document.getElementById(`chev-${id}`);
+  const isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    chev.classList.remove('open');
+    stopSSE(id);
+  } else {
+    body.classList.add('open');
+    chev.classList.add('open');
+    startSSE(id);
+  }
+}
+
+// ── STATUS REFRESH ───────────────────────────────────────────────────────────
+async function refreshStatus() {
+  try {
+    const r   = await fetch(`${API}/dashboard/status`);
+    const data = await r.json();
+    Object.entries(data).forEach(([id, status]) => {
+      setStatus(id, status === 'active' || status === 'online');
+    });
+    document.getElementById('stats-refresh').textContent =
+      `UPDATED ${new Date().toLocaleTimeString()}`;
+  } catch {
+    document.getElementById('stats-refresh').textContent = '⚠ API OFFLINE';
+  }
+}
+
+function setStatus(id, online) {
+  const pip  = document.getElementById(`pip-${id}`);
+  const card = document.getElementById(`card-${id}`);
+  const stxt = document.getElementById(`stxt-${id}`);
+  if (!pip) return;
+  pip.className  = `status-pip ${online ? 'online' : 'offline'}`;
+  card.className = `bot-card ${online ? 'online' : 'offline'}`;
+  if (stxt) {
+    stxt.className   = `bot-status-text ${online ? 'online' : 'offline'}`;
+    stxt.textContent = online ? 'RUNNING' : 'STOPPED';
+  }
+}
+
+// ── BOT ACTIONS ──────────────────────────────────────────────────────────────
+async function botAct(id, action) {
+  toast(`${action.toUpperCase()} ${id}…`);
+  try {
+    const r    = await fetch(`${API}/dashboard/${action}/${id}`, { method: 'POST' });
+    const data = await r.json();
+    toast(data.message || `${id} → ${action}`, 'ok');
+    setTimeout(refreshStatus, 1500);
+  } catch {
+    toast(`Failed to ${action} ${id}`, 'err');
+  }
+}
+
+// ── SSE LOG STREAM ────────────────────────────────────────────────────────────
+function startSSE(id) {
+  if (openSSE[id]) return;
+  const box  = document.getElementById(`log-${id}`);
+  const ldot = document.getElementById(`ldot-${id}`);
+  const llbl = document.getElementById(`llbl-${id}`);
+  box.innerHTML = '';
+  ldot.classList.add('active');
+  if (llbl) llbl.style.display = 'inline';
+
+  const es = new EventSource(`${API}/dashboard/logs/${id}/stream`);
+  openSSE[id] = es;
+  es.onmessage = e => pushLog(id, e.data);
+  es.onerror   = () => {
+    pushLog(id, '[stream closed]', 'll-sys');
+    ldot.classList.remove('active');
+    if (llbl) llbl.style.display = 'none';
+  };
+}
+
+function stopSSE(id) {
+  if (openSSE[id]) { openSSE[id].close(); delete openSSE[id]; }
+  const ldot = document.getElementById(`ldot-${id}`);
+  const llbl = document.getElementById(`llbl-${id}`);
+  if (ldot) ldot.classList.remove('active');
+  if (llbl) llbl.style.display = 'none';
+}
+
+function pushLog(id, text, cls) {
+  const box = document.getElementById(`log-${id}`);
+  if (!box) return;
+  const div = document.createElement('div');
+  div.className = `log-line ${cls || classify(text)}`;
+  div.textContent = text;
+  box.appendChild(div);
+  while (box.children.length > 600) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearLog(id) {
+  const box = document.getElementById(`log-${id}`);
+  if (box) box.innerHTML = '';
+}
+
+function classify(t) {
+  const l = t.toLowerCase();
+  if (/error|exception|traceback|fatal/.test(l)) return 'll-err';
+  if (/warn/.test(l))                             return 'll-warn';
+  if (/ready|logged in|connected|started|success/.test(l)) return 'll-ok';
+  if (/info|debug/.test(l))                       return 'll-info';
+  return '';
+}
+
+// ── QUICK COMMAND ─────────────────────────────────────────────────────────────
+async function runCmd(id) {
+  const inp = document.getElementById(`cmd-${id}`);
+  const out = document.getElementById(`cmo-${id}`);
+  const cmd = inp.value.trim();
+  if (!cmd) return;
+  out.className = 'cmd-output visible';
+  out.textContent = `$ ${cmd}\n…`;
+  try {
+    const r    = await fetch(`${API}/dashboard/command/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd })
+    });
+    const data = await r.json();
+    if (data.error) {
+      out.className   = 'cmd-output visible err';
+      out.textContent = `$ ${cmd}\n⛔  ${data.error}`;
+    } else {
+      const output = (data.stdout || '') + (data.stderr ? `\nSTDERR: ${data.stderr}` : '') || '(no output)';
+      out.className   = `cmd-output visible ${data.stderr ? 'warn' : 'ok'}`;
+      out.textContent = `$ ${cmd}\n${output}`;
+    }
+  } catch {
+    out.className   = 'cmd-output visible err';
+    out.textContent = `$ ${cmd}\n⛔  Request failed — is the backend running?`;
+  }
+}
+
+// ── STATS ────────────────────────────────────────────────────────────────────
+async function fetchStats() {
+  try {
+    const r = await fetch(`${API}/dashboard/stats`);
+    const d = await r.json();
+    document.getElementById('cpu-val').textContent = d.cpu;
+    const cpuBar = document.getElementById('cpu-bar');
+    cpuBar.style.width = `${Math.min(d.cpu, 100)}%`;
+    cpuBar.className   = `meter-fill${d.cpu > 80 ? ' hot' : ''}`;
+    const ramPct = Math.round((d.memUsed / d.memTotal) * 100);
+    document.getElementById('ram-val').textContent  = `${d.memUsed}/${d.memTotal} MB`;
+    document.getElementById('ram-bar').style.width  = `${ramPct}%`;
+    document.getElementById('disk-val').textContent = `${d.diskUsed} / ${d.diskTotal}  (${d.diskPct})`;
+  } catch {}
+}
+
+// ── DEPLOY ────────────────────────────────────────────────────────────────────
+function openDeploy() {
+  document.getElementById('deploy-modal').classList.add('open');
+  document.getElementById('d-progress').classList.remove('visible');
+  document.getElementById('d-progress').textContent = '';
+  document.getElementById('d-submit').disabled      = false;
+  document.getElementById('d-submit').textContent   = 'DEPLOY →';
+  deployFile = null;
+  document.getElementById('file-chosen').style.display = 'none';
+}
+function closeDeploy() {
+  document.getElementById('deploy-modal').classList.remove('open');
+}
+
+function onFilePick(inp) {
+  const f = inp.files[0];
+  if (f) setFile(f);
+}
+function setFile(f) {
+  deployFile = f;
+  const el = document.getElementById('file-chosen');
+  el.style.display = 'block';
+  el.textContent   = `✓  ${f.name}  (${(f.size/1024).toFixed(1)} KB)`;
+  const entry = document.getElementById('d-entry');
+  if (!entry.value) entry.value = f.name;
+}
+
+// drag & drop
+document.addEventListener('DOMContentLoaded', () => {
+  const zone = document.getElementById('drop-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', ()  => zone.classList.remove('drag'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  });
+});
+
+async function runDeploy() {
+  const name = document.getElementById('d-name').value.trim();
+  const entry = document.getElementById('d-entry').value.trim();
+  const deps  = document.getElementById('d-deps').value.trim();
+  const env   = document.getElementById('d-env').value.trim();
+
+  if (!name)      { toast('Bot name is required', 'err'); return; }
+  if (!/^[a-z0-9_-]+$/.test(name)) { toast('Name must be lowercase letters/numbers/hyphens', 'err'); return; }
+  if (!deployFile) { toast('Please upload a .py file', 'err'); return; }
+
+  const btn  = document.getElementById('d-submit');
+  const prog = document.getElementById('d-progress');
+  btn.disabled    = true;
+  btn.textContent = 'DEPLOYING…';
+  prog.className  = 'progress-box visible';
+  prog.textContent = `[${new Date().toLocaleTimeString()}] Starting deployment: "${name}"\n`;
+
+  const fd = new FormData();
+  fd.append('botname', name);
+  fd.append('entrypoint', entry || deployFile.name);
+  fd.append('deps', deps);
+  fd.append('envContent', env);
+  fd.append('botfile', deployFile);
+
+  try {
+    const r    = await fetch(`${API}/dashboard/setup`, { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.success) {
+      prog.textContent += (data.stdout || '') + '\n\n✅  DEPLOYMENT COMPLETE';
+      toast(`${name} deployed and running!`, 'ok');
+      btn.textContent = '✓ DONE';
+      // add to runtime list
+      if (!BOTS.find(b => b.id === name)) {
+        BOTS.push({ id: name, name: name.toUpperCase(), type: 'systemd', desc: `Python bot · ${entry || deployFile.name}` });
+        renderCards();
+      }
+      setTimeout(refreshStatus, 2000);
+    } else {
+      prog.textContent += `\n❌  ERROR:\n${data.error}\n${data.stdout || ''}`;
+      toast('Deployment failed — see log', 'err');
+      btn.disabled = false; btn.textContent = 'RETRY';
+    }
+  } catch(e) {
+    prog.textContent += `\n❌  Request failed: ${e.message}`;
+    toast('Deploy request failed', 'err');
+    btn.disabled = false; btn.textContent = 'DEPLOY →';
+  }
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `toast show ${type}`;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+renderCards();
+refreshStatus();
+fetchStats();
+setInterval(refreshStatus, 15000);
+setInterval(fetchStats,    10000);
+</script>
+</body>
+</html>
