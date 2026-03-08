@@ -796,8 +796,8 @@
     document.getElementById('pricingGrid').innerHTML = plans.map(p => `
       <div class="pricing-card ${p.featured ? 'featured' : ''}">
         <div class="pricing-tier">${p.tier}</div>
+        <div class="pricing-robux">${p.robux}</div>
         <div class="pricing-price">${p.price}</div>
-        <div class="pricing-robux">or ${p.robux}</div>
         <div class="pricing-divider"></div>
         <ul class="pricing-features">
           ${p.features.map(f => `<li>${f}</li>`).join('')}
