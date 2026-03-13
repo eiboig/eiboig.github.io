@@ -161,13 +161,7 @@
 
       <div class="field full">
         <label for="budget">Budget *</label>
-        <select id="budget" name="budget" required>
-          <option value="">Select budget...</option>
-          <option value="Minimal Order">Minimal Order</option>
-          <option value="500 R$ (~$5)">500 R$ (~$5)</option>
-          <option value="1,000 R$ (~$10)">1,000 R$ (~$10)</option>
-          <option value="Custom — DM me">Custom — DM me</option>
-        </select>
+        <input id="budget" name="budget" type="text" placeholder="e.g. 500 R$ (~$5)" required />
       </div>
 
       <div class="field full">
@@ -176,7 +170,7 @@
       </div>
 
       <div class="status" id="status"></div>
-      <button type="submit" id="submitBtn">Send Minimal Order</button>
+      <button type="submit" id="submitBtn">Send Order</button>
     </form>
   </main>
 
@@ -229,7 +223,7 @@
         statusEl.textContent = `Could not send order: ${error.message}`;
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Send Minimal Order';
+        submitBtn.textContent = 'Send Order';
       }
     });
   </script>
